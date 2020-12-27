@@ -1,60 +1,132 @@
-class Member < Record
-  attr_accessor :name, :gender, :spouse, :mother, :spouse
+# frozen_string_literal: true
 
-  @@all_records = Array.new
+require './family_tree/king_arthur/models/record'
+require './family_tree/king_arthur/models/member_helper'
+
+class Member < Record
+  include MemberHelper
+  attr_accessor :id, :name, :gender, :partner, :parent_id
+
+  @@all_records = []
 
   def initialize(args)
     @name = args[:name]
     @gender = args[:gender]
-    @mother = args[:mother]
-    @spouse = args[:spouse]
+    mother_name = args[:mother]
+    @parent_id = mother_name ? Member.find(name: mother_name).id : nil
+    @partner = args[:partner]
   end
 
-  def save
-    create_relationships
-    super
+  def self.get_relationship(member_name, relation_name)
+    member = Member.find(name: member_name)
+    return Message::PERSON_NOT_FOUND unless member
+
+    method_name = relation_name.to_s.downcase.gsub(' ', '_').to_s
+    results = member.send(method_name.to_sym)
+    # TODO: Fix me with appropriate message
+    return Message::NONE unless results
+
+    results.is_a?(Array) ? results.map(&:name) : results.name
   end
 
-  def relation(name)
-    send("#{name}_relation".to_sym, self)
+  def add_child(args)
+    return Message::PERSON_NOT_FOUND unless self
+
+    if is_female?
+      argm = args.merge(parent_id: id)
+      self.class.find_or_create_by(argm)
+      Message::CHILD_ADDITION_SUCCEEDED
+    else
+      Message::CHILD_ADDITION_FAILED
+    end
+  end
+
+  def add_spouse(member_name, m_gender = nil)
+    return Message::PERSON_NOT_FOUND unless self
+
+    args = { name: member_name, partner: name }
+    gend = m_gender || MemberHelper.alternate_gender(m_gender)
+    args.merge!(gender: gend)
+    self.class.find_or_create_by(args)
+  end
+
+  %w[male female].each do |gen|
+    define_method("is_#{gen}?") do
+      gender == gen
+    end
+  end
+
+  Relation.constants.map(&:downcase).each do |relationship|
+    relationship = relationship.to_s
+    define_method(relationship.downcase) do
+      if %w[uncle aunt].include? relationship
+        tree, relation = relationship.split('_')
+        uncles_or_aunts(tree, relation)
+      elsif %w[in_law].include? relationship
+        relation = relationship.split('_in_law')
+        in_laws(relation[0])
+      elsif %w[son daughter].include? relationship
+        children(relationship)
+      else
+        relationship
+      end
+    end
   end
 
   private
 
-  def create_relationships
-    create_spouse_relationship unless self.spouse.to_s.empty?
-    create_parent_relationships unless self.mother.to_s.empty?
+  def spouse
+    Member.find(name: partner, partner: name)
   end
 
-  def create_spouse_relationship
-    Relationship.find_or_create_by(member_1: self.name, member_2: self.spouse, relation: 'spouse')
+  def mother
+    Member.find(id: parent_id)
   end
 
-  def create_parent_relationships
-    mother = Member.find(name: self.mother)
-    father = mother.relation('spouse')
-    Relationship.create(member_1: self.name, member_2: mother.name, relation: 'mother')
-    Relationship.create(member_1: self.name, member_2: father.name, relation: 'father')
+  def father
+    mother.spouse
   end
 
-  def alternate_gender(gender)
-    %w[male female] - [gender]
+  def parents
+    return unless parent_id
+
+    [father, mother]
   end
 
-  def spouse_relation(member)
-    Member.find(name: member.spouse, spouse: member.name)
+  def siblings
+    return unless mother
+
+    Member.where(parent_id: mother.id) - [self]
+  end
+
+  def all_siblings
+    mother.spouse.siblings + siblings
+  end
+
+  def children(relation = '')
+    member_mother = gender == 'male' ? spouse : self
+    return unless member_mother
+
+    all_children = Member.where(parent_id: member_mother.id)
+    MemberHelper.fetch_relations(all_children, 'children', relation)
+  end
+
+  def uncles_or_aunts(tree = '', relation = '')
+    member_person = case tree
+                    when 'maternal'
+                      mother
+                    when 'paternal'
+                      father
+                    else
+                      parents
+                    end
+
+    return unless member_person
+
+    MemberHelper.fetch_relations(member_person, 'uncle_or_aunt', relation)
+  end
+
+  def in_laws(relation)
+    MemberHelper.fetch_relations(self, 'in_laws', relation)
   end
 end
-
-king_arthur = Member.new(name: 'King Arther', gender: 'male', mother: nil, spouse: 'Queen Margret')
-king_arthur.save
-queen = Member.new({ name: 'Queen Margret', gender: 'female', mother: nil, spouse: 'King Arther' })
-queen.save
-Member.all
-Relationship.all
-
-bill = Member.new({ name: 'Bill', gender: 'male', mother: 'Queen Margret', spouse: nil })
-bill.save
-Relationship.find(member_1: 'Bill', relation: 'father')
-Relationship.find_relationship(name: 'Bill', relation: 'spouse')
-# member = Member.create({ name: 'Flora', gender: 'male', mother: nil, spouse: 'Bill' })

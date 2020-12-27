@@ -1,13 +1,39 @@
-# def main
-#   input_file = ARGV[0]
-#   puts input_file
-#   # parse the file and process the command
-#   # print the output
-# end
-
-# main
+# frozen_string_literal: true
 
 require 'pry'
-require './family_tree/king_arthur/models/record.rb'
-require './family_tree/king_arthur/models/relationship.rb'
-require './family_tree/king_arthur/models/member.rb'
+require './family_tree/king_arthur/constants'
+require './family_tree/king_arthur/models/member'
+require './family_tree/king_arthur/seeds'
+
+def main
+  operation = ARGV[0]
+  total_args = ARGV.count
+  result = case operation
+           when Commands::ADD_CHILD
+             # ADD_CHILD Flora Victoria Female
+             return Message::INSUFFICIENT_PARAMS if args_not_satisfied?(total_args, 4)
+
+             parent = Member.find(name: ARGV[1])
+             args = { name: ARGV[2], gender: ARGV[3] }
+             parent.send(Commands::ADD_CHILD.to_s.downcase, args)
+           when Commands::GET_RELATIONSHIP
+             # GET_RELATIONSHIP Flora Daughter
+             return Message::INSUFFICIENT_PARAMS if args_not_satisfied?(total_args, 2)
+
+             Member.send(Commands::GET_RELATIONSHIP.to_s.downcase, ARGV[1], ARGV[2])
+           when Commands::ADD_SPOUSE
+             # ADD_SPOUSE Bill Flora Female
+             return Message::INSUFFICIENT_PARAMS if args_not_satisfied?(total_args, 4)
+
+             Member.send(Commands::ADD_SPOUSE.to_s.downcase, ARGV[1], ARGV[2])
+           else
+             return Message::INVALID_COMMAND
+           end
+  p result
+end
+
+def args_not_satisfied?(args, min_arg_count)
+  args < min_arg_count
+end
+
+main

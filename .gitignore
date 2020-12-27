@@ -9,6 +9,7 @@
 /test/tmp/
 /test/version_tmp/
 /tmp/
+family_tree/king_arthur/tmp
 
 # Used by dotenv library to load environment variables.
 # .env
