@@ -9,9 +9,9 @@ module MemberHelper
 
     def find_member_based_on_spouse_gender(records, type)
       records.map do |child|
-        spouse = child.spouse
-        spouse if spouse.gender == type
-      end
+        spouse = child.send(:spouse)
+        spouse if spouse&.gender == type
+      end.compact
     end
 
     def alternate_gender(gend)
@@ -19,18 +19,18 @@ module MemberHelper
     end
 
     def member_siblings(member)
-      member.siblings
+      member.send(:siblings)
     end
 
     def fetch_relations(member, type, relation)
       case type
       when 'in_laws'
-        spouse_member = member.spouse
+        spouse_member = member.send(:spouse)
         case relation
         when 'father'
-          spouse_member.father
+          spouse_member.send(:father)
         when 'mother'
-          spouse_member.mother
+          spouse_member.send(:mother)
         when 'sister', 'sisters'
           (find_member_based_on_gender(member_siblings(spouse_member), 'female') +
           find_member_based_on_gender(siblings, 'female')).compact
@@ -49,7 +49,7 @@ module MemberHelper
         when 'aunt', 'aunts'
           find_member_based_on_gender(member_siblings(member), 'female')
         else
-          member.all_siblings.compact
+          member.send(:all_siblings).compact
         end
       when 'children'
         case relation
