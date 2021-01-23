@@ -1,24 +1,26 @@
 # frozen_string_literal: true
 
-require './family_tree/king_arthur/models/record'
-require './family_tree/king_arthur/models/member_helper'
+require_relative './record'
+require_relative './member_helper'
+require_relative './../constants'
 
+# Member Record
 class Member < Record
   include MemberHelper
   attr_accessor :id, :name, :gender, :partner, :parent_id
 
-  @@all_records = []
-
   def initialize(args)
     @name = args[:name]
     @gender = args[:gender]
-    mother_name = args[:mother]
+    mother_name = args[:mother_name]
     @parent_id = mother_name ? Member.find(name: mother_name).id : nil
     @partner = args[:partner]
+    super
   end
 
   def self.get_relationship(member_name, relation_name)
     member = Member.find(name: member_name)
+
     return Message::PERSON_NOT_FOUND unless member
 
     method_name = relation_name.to_s.downcase.gsub(' ', '_').to_s
@@ -30,10 +32,10 @@ class Member < Record
   end
 
   def add_child(args)
-    return Message::PERSON_NOT_FOUND unless self
+    return Message::INSUFFICIENT_PARAMS if args.empty?
 
     if is_female?
-      argm = args.merge(parent_id: id)
+      argm = args.merge(parent_id: id, mother_name: name)
       self.class.find_or_create_by(argm)
       Message::CHILD_ADDITION_SUCCEEDED
     else
@@ -48,6 +50,7 @@ class Member < Record
     gend = m_gender || MemberHelper.alternate_gender(m_gender)
     args.merge!(gender: gend)
     self.class.find_or_create_by(args)
+    Message::SPOUSE_ADDITION_SUCCEEDED
   end
 
   %w[male female].each do |gen|
@@ -65,7 +68,7 @@ class Member < Record
       elsif %w[in_law].include? relationship
         relation = relationship.split('_in_law')
         in_laws(relation[0])
-      elsif %w[son daughter].include? relationship
+      elsif %w[son sons daughter daughters].include? relationship
         children(relationship)
       else
         relationship
@@ -84,7 +87,7 @@ class Member < Record
   end
 
   def father
-    mother.spouse
+    mother.send(:spouse)
   end
 
   def parents
@@ -100,11 +103,11 @@ class Member < Record
   end
 
   def all_siblings
-    mother.spouse.siblings + siblings
+    mother.send(:spouse).siblings + siblings
   end
 
   def children(relation = '')
-    member_mother = gender == 'male' ? spouse : self
+    member_mother = gender == 'male' ? send(:spouse) : self
     return unless member_mother
 
     all_children = Member.where(parent_id: member_mother.id)

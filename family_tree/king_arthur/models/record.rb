@@ -1,9 +1,37 @@
 # frozen_string_literal: true
 
+require 'pry'
+
+# Base Record
 class Record
+  attr_accessor :id
+
   @@all_records = []
 
-  def initialize(*args); end
+  def initialize(args, &block)
+    args.each do |key, val|
+      build(key, val, &block)
+    end
+  end
+
+  def build(method_name, *args, &block)
+    # Check if the method missing is an "attr=" method
+    # raise unless method_name.to_s.end_with?("=")
+    setter = method_name
+    getter = method_name.to_s.to_sym
+    instance_var = "@#{getter}".to_sym
+    # Actually sets the value on the instance variable
+    value = args.first
+    instance_variable_set(instance_var, value)
+
+    define_singleton_method(setter) do |new_val|
+      instance_variable_set(instance_var, new_val)
+    end
+    define_singleton_method(getter) { instance_variable_get(instance_var) }
+  rescue StandardError
+    # Raise error as normal, nothing to see here
+    super(method_name, *args, &block)
+  end
 
   def save
     unless id
@@ -51,8 +79,13 @@ class Record
     create!(args)
   end
 
+  def self.delete_all
+    @@all_records = []
+  end
+
   def self.set_callbacks(record, args)
-    record.send(:save_spouse, args[:partner]) if args[:partner]
+    partner = args[:partner]
+    record.send(:save_spouse, partner) if partner
   end
 
   def self.create!(args)

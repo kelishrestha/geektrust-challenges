@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require 'pry'
-require './family_tree/king_arthur/constants'
-require './family_tree/king_arthur/models/member'
-require './family_tree/king_arthur/seeds'
+require './constants'
+require './models/member'
+require './seeds'
 
 def main
   operation = ARGV[0]
@@ -14,6 +14,9 @@ def main
              return Message::INSUFFICIENT_PARAMS if args_not_satisfied?(total_args, 4)
 
              parent = Member.find(name: ARGV[1])
+
+             return Message::PERSON_NOT_FOUND if parent.empty?
+
              args = { name: ARGV[2], gender: ARGV[3] }
              parent.send(Commands::ADD_CHILD.to_s.downcase, args)
            when Commands::GET_RELATIONSHIP
@@ -24,6 +27,10 @@ def main
            when Commands::ADD_SPOUSE
              # ADD_SPOUSE Bill Flora Female
              return Message::INSUFFICIENT_PARAMS if args_not_satisfied?(total_args, 4)
+
+             parent = Member.find(name: ARGV[1])
+
+             return Message::PERSON_NOT_FOUND if parent.empty?
 
              Member.send(Commands::ADD_SPOUSE.to_s.downcase, ARGV[1], ARGV[2])
            else

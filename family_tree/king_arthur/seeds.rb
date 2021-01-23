@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require './family_tree/king_arthur/models/member'
+require './models/member'
 
 Member.find_or_create_by(name: 'King Arther', gender: 'male', mother: nil, partner: 'Queen Margret')
 Member.find_or_create_by({ name: 'Queen Margret', gender: 'female', mother: nil, partner: 'King Arther' })

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# Helper methods for member record
 module MemberHelper
   class << self
     def find_member_based_on_gender(records, type)
