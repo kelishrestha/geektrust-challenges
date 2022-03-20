@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+require './geektrust.rb'
+require 'rspec/core/rake_task'
+
+# run main task
+task :default do
+  ARGV.each { |a| task a.to_sym do ; end }
+  main
+end
+
+RSpec::Core::RakeTask.new(:spec)
